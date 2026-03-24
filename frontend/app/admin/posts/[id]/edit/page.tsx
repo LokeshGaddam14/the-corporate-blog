@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 
 type BlockType = 'heading' | 'paragraph' | 'image' | 'list' | 'blockquote' | 'callout' | 'faq';
 interface Block { type: BlockType; [key: string]: unknown; }
@@ -91,7 +91,6 @@ function BlockContent({ block, onChange }: { block: Block; onChange: (b: Block) 
 }
 
 export default function EditPostPage() {
-  const router = useRouter();
   const params = useParams();
   const postId = params.id as string;
 
@@ -150,7 +149,7 @@ export default function EditPostPage() {
 
       if (publish && status !== 'PUBLISHED') {
         const pub = await fetch(`${api}/posts/${postId}/publish`, { method: 'PUT', headers: { Authorization: `Bearer ${token()}` }, credentials: 'include' });
-        if (!pub.ok) { const e = await pub.json().catch(() => ({})); throw new Error(e.message || 'Publish failed'); }
+        if (!pub.ok) { const e = await pub.json().catch(() => ({})); throw new Error(e.error || 'Publish failed — make sure the post has a featured image and an excerpt or meta description.'); }
         setStatus('PUBLISHED');
         setMessage('✅ Published!');
       } else {

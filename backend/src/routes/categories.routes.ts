@@ -26,7 +26,7 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
 // GET /categories/:slug/posts
 router.get('/:slug/posts', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const category = await prisma.category.findUnique({ where: { slug: req.params.slug } });
+    const category = await prisma.category.findUnique({ where: { slug: req.params.slug as string } });
     if (!category) throw new AppError('Category not found', 404);
 
     const page = parseInt(req.query.page as string || '1');
@@ -66,7 +66,7 @@ router.post('/', authenticate, requireRole('ADMIN', 'EDITOR'), async (req: Reque
 router.put('/:id', authenticate, requireRole('ADMIN', 'EDITOR'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = categorySchema.partial().parse(req.body);
-    const category = await prisma.category.update({ where: { id: req.params.id }, data });
+    const category = await prisma.category.update({ where: { id: req.params.id as string }, data });
     res.json({ category });
   } catch (error) { next(error); }
 });
@@ -74,7 +74,7 @@ router.put('/:id', authenticate, requireRole('ADMIN', 'EDITOR'), async (req: Req
 // DELETE /categories/:id
 router.delete('/:id', authenticate, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await prisma.category.delete({ where: { id: req.params.id } });
+    await prisma.category.delete({ where: { id: req.params.id as string } });
     res.json({ message: 'Category deleted' });
   } catch (error) { next(error); }
 });

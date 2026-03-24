@@ -9,14 +9,53 @@ export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [user, setUser] = useState({ name: '', role: '' });
   const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
+    // eslint-disable-next-line
+    setIsMounted(true);
+    const token = localStorage.getItem('accessToken');
+    setIsLoggedIn(!!token);
+    if (token) {
+      setUser({
+        name: localStorage.getItem('userName') || 'User',
+        role: localStorage.getItem('userRole') || 'Member',
+      });
+    }
+
+    const onScroll = () => {
+      setScrolled(window.scrollY > 40);
+      setDropdownOpen(false); // Close dropdown on scroll
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
+
+  const handleSignOut = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userRole');
+    setIsLoggedIn(false);
+    setDropdownOpen(false);
+    router.push('/login');
+  };
 
   useEffect(() => {
     if (searchOpen) inputRef.current?.focus();
@@ -137,26 +176,125 @@ export default function Navbar() {
             </button>
           )}
 
-          {/* Write / Admin */}
-          <Link
-            href="/admin"
-            style={{
-              height: '36px', padding: '0 1rem',
-              backgroundColor: 'var(--color-accent)',
-              color: 'white', borderRadius: 'var(--radius-full)',
-              fontSize: 'var(--text-sm)', fontWeight: 600,
-              display: 'flex', alignItems: 'center',
-              transition: 'background-color 0.15s ease',
-            }}
-          >
-            Write
-          </Link>
+          {/* Write / Admin & Auth */}
+          {isMounted && (
+            isLoggedIn ? (
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.5rem' }} ref={dropdownRef}>
+                <Link
+                  href="/admin"
+                  style={{
+                    height: '36px', padding: '0 1rem',
+                    backgroundColor: 'var(--color-accent)',
+                    color: 'white', borderRadius: 'var(--radius-full)',
+                    fontSize: 'var(--text-sm)', fontWeight: 600,
+                    display: 'flex', alignItems: 'center',
+                    transition: 'background-color 0.15s ease',
+                  }}
+                  className="write-btn"
+                >
+                  Write
+                </Link>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--color-ink-950)', transition: 'opacity 0.15s ease',
+                      padding: '0 0.5rem'
+                    }}
+                    className="hover-opacity"
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <span className="auth-text-wrapper" style={{ fontSize: '10px', marginTop: '2px', display: 'flex', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 600 }}>Me</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: '2px' }}>
+                        <path d="m6 9 6 6 6-6"/>
+                      </svg>
+                    </span>
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {dropdownOpen && (
+                    <div style={{
+                      position: 'absolute', top: '100%', right: 0, marginTop: '8px',
+                      width: '260px', backgroundColor: 'var(--color-surface)',
+                      border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)',
+                      boxShadow: 'var(--shadow-lg)', overflow: 'hidden', zIndex: 60,
+                      color: 'var(--color-ink-950)'
+                    }}>
+                      <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-border)' }}>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                          <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--color-ink-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', fontWeight: 600, color: 'var(--color-muted)', flexShrink: 0 }}>
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 600, fontSize: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {user.name}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--color-muted)', marginTop: '2px', textTransform: 'capitalize' }}>
+                              {user.role.toLowerCase()}
+                            </div>
+                          </div>
+                        </div>
+                        <Link href="/admin" onClick={() => setDropdownOpen(false)} style={{ display: 'block', width: '100%', textAlign: 'center', padding: '0.3rem 0', marginTop: '0.75rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--color-accent)', color: 'var(--color-accent)', textDecoration: 'none', fontSize: 'var(--text-sm)', fontWeight: 600, transition: 'all 0.15s ease' }} className="hover-bg-accent">
+                          View profile
+                        </Link>
+                      </div>
+
+                      <div style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                        <div style={{ padding: '0.25rem 1rem', fontSize: '1rem', fontWeight: 600, color: 'var(--color-ink-950)' }}>Account</div>
+                        <Link href="/admin/settings" onClick={() => setDropdownOpen(false)} style={{ display: 'block', padding: '0.3rem 1rem', fontSize: 'var(--text-sm)', color: 'var(--color-muted)', textDecoration: 'none' }} className="dropdown-link">Settings & Privacy</Link>
+                        <Link href="/help" onClick={() => setDropdownOpen(false)} style={{ display: 'block', padding: '0.3rem 1rem', fontSize: 'var(--text-sm)', color: 'var(--color-muted)', textDecoration: 'none' }} className="dropdown-link">Help</Link>
+                      </div>
+
+                      <div style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                        <div style={{ padding: '0.25rem 1rem', fontSize: '1rem', fontWeight: 600, color: 'var(--color-ink-950)' }}>Manage</div>
+                        <Link href="/admin/posts" onClick={() => setDropdownOpen(false)} style={{ display: 'block', padding: '0.3rem 1rem', fontSize: 'var(--text-sm)', color: 'var(--color-muted)', textDecoration: 'none' }} className="dropdown-link">Posts & Activity</Link>
+                        <Link href="/admin/categories" onClick={() => setDropdownOpen(false)} style={{ display: 'block', padding: '0.3rem 1rem', fontSize: 'var(--text-sm)', color: 'var(--color-muted)', textDecoration: 'none' }} className="dropdown-link">Categories</Link>
+                      </div>
+
+                      <button onClick={handleSignOut} style={{ width: '100%', display: 'block', padding: '0.75rem 1rem', textAlign: 'left', background: 'none', border: 'none', fontSize: 'var(--text-sm)', color: 'var(--color-muted)', cursor: 'pointer' }} className="dropdown-link">
+                        Sign out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  height: '36px', padding: '0 0.5rem',
+                  textDecoration: 'none', color: 'var(--color-ink-950)',
+                  fontWeight: 500, fontSize: 'var(--text-md)',
+                  transition: 'opacity 0.15s ease'
+                }}
+                className="auth-btn hover-opacity"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+                <span className="auth-text" style={{ whiteSpace: 'nowrap' }}>Log In</span>
+              </Link>
+            )
+          )}
         </div>
       </div>
 
       <style>{`
         @media (min-width: 768px) { .nav-link { display: block !important; } }
         .nav-link:hover { color: var(--color-ink-950) !important; }
+        .hover-opacity:hover { opacity: 0.7; }
+        @media (max-width: 600px) {
+          .auth-text, .auth-text-wrapper { display: none !important; }
+          .write-btn { display: none !important; }
+        }
+        .dropdown-link:hover { text-decoration: underline; color: var(--color-ink-950) !important; }
+        .hover-bg-accent:hover { background-color: var(--color-accent) !important; color: white !important; }
       `}</style>
     </header>
   );

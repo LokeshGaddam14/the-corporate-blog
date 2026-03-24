@@ -17,6 +17,7 @@ function AdminContent() {
     const token = localStorage.getItem('accessToken');
     const name  = localStorage.getItem('userName') || '';
     const role  = localStorage.getItem('userRole') || '';
+    // eslint-disable-next-line
     if (name) setUser({ name, role });
 
     if (token) {

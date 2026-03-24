@@ -49,5 +49,9 @@ export const errorHandler = (
   }
 
   console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error', details: err.message, stack: err.stack });
+  if (process.env.NODE_ENV === 'production') {
+    res.status(500).json({ error: 'Internal server error' });
+  } else {
+    res.status(500).json({ error: err.message, stack: err.stack });
+  }
 };

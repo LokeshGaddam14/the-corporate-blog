@@ -41,7 +41,7 @@ export default function AdminCategoriesPage() {
     try {
       const body = { name: name.trim(), description: description.trim() || null };
       const res = editId
-        ? await fetch(`${api}/categories/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` }, credentials: 'include', body: JSON.stringify(body) })
+        ? await fetch(`${api}/categories/${editId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` }, credentials: 'include', body: JSON.stringify(body) })
         : await fetch(`${api}/categories`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` }, credentials: 'include', body: JSON.stringify(body) });
       if (!res.ok) throw new Error('Save failed');
       setMessage(editId ? '✅ Updated!' : '✅ Created!');

@@ -66,11 +66,11 @@ router.post('/upload', authenticate, requireRole('ADMIN', 'EDITOR', 'WRITER'), u
 // DELETE /images/:id
 router.delete('/:id', authenticate, requireRole('ADMIN', 'EDITOR'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const image = await prisma.image.findUnique({ where: { id: req.params.id } });
+    const image = await prisma.image.findUnique({ where: { id: req.params.id as string } });
     if (!image) throw new AppError('Image not found', 404);
 
     await cloudinary.uploader.destroy(image.publicId);
-    await prisma.image.delete({ where: { id: req.params.id } });
+    await prisma.image.delete({ where: { id: req.params.id as string } });
 
     res.json({ message: 'Image deleted' });
   } catch (error) { next(error); }

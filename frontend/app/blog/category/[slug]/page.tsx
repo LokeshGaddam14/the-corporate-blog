@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getCategoryPosts } from '@/lib/api';
+import Link from 'next/link';
 import PostCard from '@/components/blog/PostCard';
 import { BreadcrumbJsonLd } from '@/components/seo/JsonLd';
 
@@ -49,7 +50,7 @@ export default async function CategoryPage({ params }: PageProps) {
         {/* Header */}
         <div style={{ marginBottom: '3rem', paddingBottom: '2rem', borderBottom: '1px solid var(--color-border)' }}>
           <nav style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '1rem' }}>
-            <a href="/blog" style={{ color: 'var(--color-muted)' }}>Blog</a> / <span>{category.name}</span>
+            <Link href="/blog" style={{ color: 'var(--color-muted)' }}>Blog</Link> / <span>{category.name}</span>
           </nav>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-4xl)', marginBottom: '0.5rem' }}>{category.name}</h1>
           {category.description && <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)', maxWidth: '60ch' }}>{category.description}</p>}

@@ -26,6 +26,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.replace('/login');
       return;
     }
+    // eslint-disable-next-line
     setUserName(localStorage.getItem('userName') || '');
     setAuthChecked(true);
   }, [router]);

@@ -46,7 +46,17 @@ export default async function ArticlePage({ params }: PageProps) {
 
   const related = await getRelatedPosts(post.id).catch(() => ({ suggestions: [] }));
   const toc = generateTOC(post.content);
-  const readingTime = Math.max(1, Math.ceil(post.content.length * 0.7));
+  const wordCount = (post.content as Array<{type:string;text?:string;items?:string[]}>)
+    ?.reduce((acc: number, block: {type:string;text?:string;items?:string[]}) => {
+      if (block.type === 'paragraph' || block.type === 'heading') {
+        return acc + (block.text?.split(/\s+/).filter(Boolean).length || 0)
+      }
+      if (block.type === 'list') {
+        return acc + (block.items?.join(' ').split(/\s+/).filter(Boolean).length || 0)
+      }
+      return acc
+    }, 0) || 0;
+  const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
   return (
     <>

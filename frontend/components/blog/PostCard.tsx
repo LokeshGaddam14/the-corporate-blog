@@ -9,7 +9,17 @@ interface PostCardProps {
 
 export default function PostCard({ post, variant = 'default' }: PostCardProps) {
   const href = `/blog/${post.slug}`;
-  const readingTime = Math.max(1, Math.ceil(((post.content as unknown[])?.length || 0) * 0.5));
+  const wordCount = (post.content as Array<{type:string;text?:string;items?:string[]}>)
+    ?.reduce((acc, block) => {
+      if (block.type === 'paragraph' || block.type === 'heading') {
+        return acc + (block.text?.split(/\s+/).filter(Boolean).length || 0)
+      }
+      if (block.type === 'list') {
+        return acc + (block.items?.join(' ').split(/\s+/).filter(Boolean).length || 0)
+      }
+      return acc
+    }, 0) || 0;
+  const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
   if (variant === 'featured') {
     return (

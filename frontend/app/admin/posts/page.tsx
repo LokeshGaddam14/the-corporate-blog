@@ -31,7 +31,7 @@ export default function AdminPostsPage() {
       if (!res.ok) throw new Error('Failed to fetch posts');
       const data = await res.json();
       setPosts(data.posts || data);
-    } catch (e) {
+    } catch {
       setError('Could not load posts. Make sure the backend is running.');
     } finally {
       setLoading(false);
@@ -51,6 +51,22 @@ export default function AdminPostsPage() {
     fetchPosts();
   };
 
+  const handlePermanentDelete = async (id: string, title: string) => {
+    if (!confirm(`⚠️ PERMANENTLY delete "${title}"?\n\nThis cannot be undone. The post, its categories, and view analytics will be removed forever.`)) return;
+    const token = localStorage.getItem('accessToken');
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/${id}/permanent`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || 'Delete failed');
+      return;
+    }
+    fetchPosts();
+  };
+
   const handlePublish = async (id: string) => {
     const token = localStorage.getItem('accessToken');
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/${id}/publish`, {
@@ -60,7 +76,7 @@ export default function AdminPostsPage() {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      alert(err.message || 'Publish failed');
+      alert(err.error || 'Publish failed — make sure the post has a featured image and an excerpt or meta description.');
     }
     fetchPosts();
   };
@@ -124,7 +140,7 @@ export default function AdminPostsPage() {
               {filtered.map((post, i) => (
                 <tr key={post.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
                   <td style={{ padding: '1rem', maxWidth: '320px' }}>
-                    <Link href={`/admin/posts/${post.id}`} style={{ fontWeight: 600, color: 'var(--color-ink-950)', textDecoration: 'none', fontSize: 'var(--text-sm)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <Link href={`/admin/posts/${post.id}/edit`} style={{ fontWeight: 600, color: 'var(--color-ink-950)', textDecoration: 'none', fontSize: 'var(--text-sm)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {post.title || '(Untitled)'}
                     </Link>
                     <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>/blog/{post.slug}</span>
@@ -140,7 +156,7 @@ export default function AdminPostsPage() {
                   </td>
                   <td style={{ padding: '1rem' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <Link href={`/admin/posts/${post.id}`} style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-accent)', textDecoration: 'none' }}>Edit</Link>
+                      <Link href={`/admin/posts/${post.id}/edit`} style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-accent)', textDecoration: 'none' }}>Edit</Link>
                       {post.status === 'DRAFT' && (
                         <button onClick={() => handlePublish(post.id)} style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'oklch(55% 0.18 145)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Publish</button>
                       )}
@@ -148,6 +164,7 @@ export default function AdminPostsPage() {
                         <Link href={`/blog/${post.slug}`} target="_blank" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textDecoration: 'none' }}>View ↗</Link>
                       )}
                       <button onClick={() => handleDelete(post.id, post.title)} style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Archive</button>
+                      <button onClick={() => handlePermanentDelete(post.id, post.title)} style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Delete</button>
                     </div>
                   </td>
                 </tr>

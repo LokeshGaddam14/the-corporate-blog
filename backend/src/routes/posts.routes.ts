@@ -9,6 +9,44 @@ import axios from 'axios';
 
 const router = Router();
 
+// ── Auto-categorization by keyword matching ─────────────────────
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  business:   ['business', 'brand', 'branding', 'b2b', 'marketing', 'growth', 'revenue', 'company', 'companies', 'corporate', 'market', 'investor', 'esg', 'startup'],
+  technology: ['technology', 'tech', 'data', 'ai', 'digital', 'software', 'automation', 'cloud', 'api', 'machine learning', 'analytics', 'cyber'],
+  strategy:   ['strategy', 'strategic', 'accountability', 'remote work', 'future of work', 'culture', 'planning', 'framework', 'competitive', 'innovation', 'adapting'],
+  leadership: ['leadership', 'leader', 'management', 'team', 'ceo', 'executive', 'traits', 'mentor', 'decision', 'hiring'],
+};
+
+function extractTextFromBlocks(content: unknown): string {
+  if (!Array.isArray(content)) return '';
+  return content.map((b: Record<string, unknown>) => {
+    if (typeof b.text === 'string') return b.text;
+    if (Array.isArray(b.items)) return b.items.map((i: unknown) => typeof i === 'string' ? i : '').join(' ');
+    return '';
+  }).join(' ');
+}
+
+async function autoCategorize(title: string, content: unknown): Promise<string[]> {
+  const text = (title + ' ' + extractTextFromBlocks(content)).toLowerCase();
+  const matchedSlugs: string[] = [];
+
+  for (const [slug, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (keywords.some(kw => text.includes(kw))) {
+      matchedSlugs.push(slug);
+    }
+  }
+
+  // Default to business if nothing matched
+  if (matchedSlugs.length === 0) matchedSlugs.push('business');
+
+  const categories = await prisma.category.findMany({
+    where: { slug: { in: matchedSlugs } },
+    select: { id: true },
+  });
+
+  return categories.map(c => c.id);
+}
+
 const POST_SELECT = {
   id: true, title: true, slug: true, excerpt: true, status: true,
   featuredImage: true, featuredImageAlt: true, publishedAt: true,
@@ -95,7 +133,7 @@ router.get('/admin/all', authenticate, requireRole('ADMIN', 'EDITOR', 'WRITER'),
 router.get('/slug/:slug', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const post = await prisma.post.findFirst({
-      where: { slug: req.params.slug, status: PostStatus.PUBLISHED },
+      where: { slug: req.params.slug as string, status: PostStatus.PUBLISHED },
       include: {
         author: { select: { id: true, name: true, slug: true, avatar: true, bio: true } },
         categories: { select: { category: { select: { id: true, name: true, slug: true } } } },
@@ -121,7 +159,7 @@ router.get('/slug/:slug', async (req: AuthRequest, res: Response, next: NextFunc
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const post = await prisma.post.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: {
         author: { select: { id: true, name: true, slug: true, avatar: true } },
         categories: { select: { category: { select: { id: true, name: true, slug: true } } } },
@@ -152,7 +190,10 @@ router.post('/', authenticate, requireRole('ADMIN', 'EDITOR', 'WRITER'), async (
         authorId: req.user!.id,
         status: 'DRAFT',
         categories: {
-          create: data.categoryIds.map(id => ({ categoryId: id })),
+          create: (data.categoryIds && data.categoryIds.length > 0
+            ? data.categoryIds
+            : await autoCategorize(data.title, data.content)
+          ).map(id => ({ categoryId: id })),
         },
       },
       include: { categories: { select: { category: true } } },
@@ -170,7 +211,7 @@ router.post('/', authenticate, requireRole('ADMIN', 'EDITOR', 'WRITER'), async (
 // PUT /posts/:id — update
 router.put('/:id', authenticate, requireRole('ADMIN', 'EDITOR', 'WRITER'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const existing = await prisma.post.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.post.findUnique({ where: { id: req.params.id as string } });
     if (!existing) throw new AppError('Post not found', 404);
 
     // Writers can only edit their own posts
@@ -183,15 +224,20 @@ router.put('/:id', authenticate, requireRole('ADMIN', 'EDITOR', 'WRITER'), async
       data.slug = await generateUniqueSlug(data.slug, existing.id);
     }
 
+    // Auto-categorize if no explicit categoryIds provided
+    const categoryIds = (data.categoryIds !== undefined && data.categoryIds.length > 0)
+      ? data.categoryIds
+      : await autoCategorize(data.title || existing.title, data.content || existing.content);
+
     const post = await prisma.post.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: {
         ...data,
         featuredImage: data.featuredImage || undefined,
-        categories: data.categoryIds !== undefined ? {
+        categories: {
           deleteMany: {},
-          create: data.categoryIds.map(id => ({ categoryId: id })),
-        } : undefined,
+          create: categoryIds.map(id => ({ categoryId: id })),
+        },
       },
       include: { categories: { select: { category: true } } },
     });
@@ -204,7 +250,7 @@ router.put('/:id', authenticate, requireRole('ADMIN', 'EDITOR', 'WRITER'), async
 router.put('/:id/publish', authenticate, requireRole('ADMIN', 'EDITOR'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const existing = await prisma.post.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: { categories: true },
     });
     if (!existing) throw new AppError('Post not found', 404);
@@ -216,7 +262,7 @@ router.put('/:id/publish', authenticate, requireRole('ADMIN', 'EDITOR'), async (
     if (!existing.seoDescription && !existing.excerpt) throw new AppError('Meta description or excerpt is required', 400);
 
     const post = await prisma.post.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: { status: 'PUBLISHED', publishedAt: new Date() },
     });
 
@@ -244,13 +290,29 @@ router.put('/:id/publish', authenticate, requireRole('ADMIN', 'EDITOR'), async (
 router.delete('/:id', authenticate, requireRole('ADMIN', 'EDITOR'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     await prisma.post.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: { status: 'DRAFT' },
     });
     await prisma.auditLog.create({
-      data: { userId: req.user!.id, action: 'UNPUBLISH', entityType: 'Post', entityId: req.params.id },
+      data: { userId: req.user!.id, action: 'UNPUBLISH', entityType: 'Post', entityId: req.params.id as string },
     });
     res.json({ message: 'Post unpublished' });
+  } catch (error) { next(error); }
+});
+
+// DELETE /posts/:id/permanent — permanently delete post (ADMIN only)
+router.delete('/:id/permanent', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const existing = await prisma.post.findUnique({ where: { id: req.params.id as string } });
+    if (!existing) throw new AppError('Post not found', 404);
+
+    await prisma.post.delete({ where: { id: req.params.id as string } });
+
+    await prisma.auditLog.create({
+      data: { userId: req.user!.id, action: 'DELETE_PERMANENT', entityType: 'Post', entityId: req.params.id as string },
+    });
+
+    res.json({ message: 'Post permanently deleted' });
   } catch (error) { next(error); }
 });
 
@@ -258,7 +320,7 @@ router.delete('/:id', authenticate, requireRole('ADMIN', 'EDITOR'), async (req: 
 router.get('/:id/internal-suggestions', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const post = await prisma.post.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: { categories: { select: { categoryId: true } } },
     });
     if (!post) throw new AppError('Post not found', 404);
